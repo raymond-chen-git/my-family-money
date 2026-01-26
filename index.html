@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>家庭記帳本 v5.4 (客製標籤版)</title>
+    <title>家庭記帳本 v5.5 (分期優化版)</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1041/1041888.png">
@@ -191,7 +191,19 @@
                     
                     <div id="expenseOnlyFields" class="space-y-4">
                         <select id="paymentInput" onchange="toggleInstallment()" class="w-full bg-gray-50 border-none rounded-xl p-4 text-gray-700 outline-none text-base"><option value="cash">現金</option><option value="credit">信用卡</option><option value="linepay">行動支付</option><option value="transfer">轉帳</option></select>
-                        <div id="installmentBlock" class="hidden bg-indigo-50 p-3 rounded-xl"><div class="flex justify-between text-xs text-indigo-500 font-bold mb-1"><span>分期付款</span><span>自動計入未來</span></div><select id="installmentInput" class="w-full bg-white border-none rounded-lg p-2 text-sm text-gray-700 outline-none"><option value="1">一次付清</option><option value="3">3期</option><option value="6">6期</option><option value="12">12期</option></select></div>
+                        <div id="installmentBlock" class="hidden bg-indigo-50 p-3 rounded-xl">
+                            <div class="flex justify-between text-xs text-indigo-500 font-bold mb-1"><span>分期付款</span><span>自動計入未來</span></div>
+                            <div class="flex space-x-2">
+                                <select id="installmentSelect" onchange="handleInstallmentChange()" class="flex-1 bg-white border-none rounded-lg p-2 text-sm text-gray-700 outline-none">
+                                    <option value="1">一次付清</option>
+                                    <option value="3">3期</option>
+                                    <option value="6">6期</option>
+                                    <option value="12">12期</option>
+                                    <option value="custom">自訂期數...</option>
+                                </select>
+                                <input type="number" id="installmentCustomInput" class="hidden w-20 bg-white border-none rounded-lg p-2 text-sm text-gray-700 outline-none" placeholder="期數" min="1">
+                            </div>
+                        </div>
                     </div>
 
                     <div class="space-y-2">
@@ -217,40 +229,33 @@
     </div>
 
     <script>
-        // 修正後的類別結構
         const categories = { 
             '飲食': ['外食', '飲料', '生鮮食材', '零食/點心'], 
             '居住': ['房租/管理費', '水電瓦斯', '手機網路', '維修/修繕'], 
             '交通': ['大眾運輸', '計程車', '加油', '停車/過路費', '保養維修'], 
-            '購物': ['日常用品', '衣物飾品', '美妝保養', '家電', '3C產品', '雜貨'], // 3C家電已拆分
-            '娛樂': ['休閒娛樂', '訂閱服務', '旅遊/住宿', '遊戲'], // 移除了電影展覽
+            '購物': ['日常用品', '衣物飾品', '美妝保養', '家電', '3C產品', '雜貨'], 
+            '娛樂': ['休閒娛樂', '訂閱服務', '旅遊/住宿', '遊戲'], 
             '醫療': ['看診/掛號', '藥品/耗材', '保健食品'], 
             '保險': ['醫療/壽險', '儲蓄險', '車險/產險', '其他保險'], 
-            '子女': ['學費/安親', '尿布', '奶粉', '衣物/玩具', '其他母嬰用品'], // 尿布/奶粉已拆分，新增其他母嬰
+            '子女': ['學費/安親', '尿布', '奶粉', '衣物/玩具', '其他母嬰用品'], 
             '投資': ['股票', '基金', '外匯', '虛擬貨幣'], 
             '社交': ['孝親費', '送禮', '紅包', '奠儀'], 
             '其他': ['稅金', '罰單', '捐款', '雜支'] 
         };
 
-        // 客製化快選標籤設定
         const categoryTags = {
             '外食': ['早餐', '午餐', '晚餐', '宵夜'],
             '飲料': ['手搖', '咖啡'],
-            
             '大眾運輸': ['捷運', '公車', '火車', '高鐵'],
             '加油': ['機車', '汽車'],
             '保養維修': ['洗車'],
-            
             '衣物飾品': ['衣物', '鞋子', '包包'],
             '美妝保養': ['美妝', '保養', '美容美髮'],
             '3C產品': ['手機', '電腦'],
-            
             '房租/管理費': ['房租', '管理費'],
             '手機網路': ['手機月租', '網路月租'],
-            
             '訂閱服務': ['YT', 'NETFLIX', 'ICLOUD', 'GOOGLE雲端'],
             '旅遊/住宿': ['機票', '住宿'],
-            
             '其他母嬰用品': ['濕紙巾', '寶寶零食']
         };
 
@@ -261,10 +266,13 @@
         let appSettings = JSON.parse(localStorage.getItem('appSettings')) || { creditLimit: 200000, monthlyLimit: 50000 };
         if(!appSettings.monthlyLimit) appSettings.monthlyLimit = 50000;
         let transactions = [], allAnnualData = [], currentViewDate = new Date(), currentViewYear = new Date().getFullYear();
-        let unsubscribe = null, unsubscribeRecent = null, monthPieChart = null, trendChart = null, yearPieChart = null, editingId = null;
+        let unsubscribe = null, unsubscribeRecent = null, monthPieChart = null, trendChart = null, yearPieChart = null;
         let pickerTempDate = new Date(), pickerMode = 'month', annualSortMode = 'amount';
+        
+        // 核心修改：新增變數追蹤分期編輯狀態
+        let editingId = null;
+        let editingGroupId = null;
 
-        // Init
         document.getElementById('creditLimitInput').value = appSettings.creditLimit;
         document.getElementById('monthlyLimitInput').value = appSettings.monthlyLimit;
         
@@ -425,12 +433,6 @@
         function handleTouchMove(evt) { if (!xDown || !yDown) return; let xDiff = xDown - evt.touches[0].clientX, yDiff = yDown - evt.touches[0].clientY; if (Math.abs(xDiff) > Math.abs(yDiff)) { if (xDiff > 0) evt.currentTarget.classList.add('swiped'); else evt.currentTarget.classList.remove('swiped'); } }
         function handleTouchEnd(evt) { xDown = null; yDown = null; }
         
-        function confirmDelete(id) { 
-            if(confirm("確定刪除此筆紀錄？")) {
-                deleteTransaction(id);
-            }
-        }
-
         function loadAnnualData() {
             document.getElementById('currentYearLabel').innerText = currentViewYear;
             const start = new Date(currentViewYear, 0, 1).toISOString(); const end = new Date(currentViewYear, 11, 31, 23, 59, 59).toISOString();
@@ -475,14 +477,22 @@
             document.getElementById('amountInput').value = '';
             document.getElementById('noteInput').value = '';
             document.getElementById('paymentInput').value = 'cash'; 
-            document.getElementById('installmentInput').value = '1'; 
+            
+            // 重置分期相關欄位
+            document.getElementById('installmentSelect').value = '1'; 
+            document.getElementById('installmentCustomInput').value = '';
+            handleInstallmentChange(); 
+
             toggleInstallment(); 
             updateCategories(); 
         }
         
-        function closeAddModal() { document.getElementById('addModal').classList.add('hidden'); editingId=null; }
+        function closeAddModal() { 
+            document.getElementById('addModal').classList.add('hidden'); 
+            editingId = null; 
+            editingGroupId = null; // 重置
+        }
         
-        // 渲染快選標籤 (核心邏輯)
         function renderQuickTags() {
             const combinedVal = document.getElementById('combinedCategoryInput').value;
             const subCategory = combinedVal.split(',')[1];
@@ -498,7 +508,6 @@
                         e.preventDefault(); 
                         const noteInput = document.getElementById('noteInput');
                         const currentVal = noteInput.value.trim();
-                        // 智慧填入邏輯：如果已有文字，自動補空白鍵
                         if (currentVal) {
                             noteInput.value = currentVal + ' ' + tag;
                         } else {
@@ -510,24 +519,182 @@
             }
         }
 
+        // 處理分期下拉選單變化
+        function handleInstallmentChange() {
+            const select = document.getElementById('installmentSelect');
+            const customInput = document.getElementById('installmentCustomInput');
+            if (select.value === 'custom') {
+                customInput.classList.remove('hidden');
+                customInput.focus();
+            } else {
+                customInput.classList.add('hidden');
+            }
+        }
+
+        function toggleInstallment() { 
+            document.getElementById('installmentBlock').classList.toggle('hidden', !(document.getElementById('paymentInput').value==='credit')); 
+        }
+
         async function submitForm() {
             try {
-                const amt = parseFloat(document.getElementById('amountInput').value), dateVal = document.getElementById('dateInput').value;
+                const amt = parseFloat(document.getElementById('amountInput').value);
+                const dateVal = document.getElementById('dateInput').value;
                 if(!amt || !dateVal) return alert("請輸入金額與日期");
-                const type=document.getElementById('typeInput').value, catParts=document.getElementById('combinedCategoryInput').value.split(','), payment=document.getElementById('paymentInput').value, note=document.getElementById('noteInput').value;
-                const cat = catParts[0], sub = catParts[1] || ''; 
-                const inst=type==='expense'&&payment==='credit'?parseInt(document.getElementById('installmentInput').value):1;
-                const batch=db.batch(), grpId=Date.now().toString(), baseDate=new Date(dateVal); const now=new Date(); baseDate.setHours(now.getHours(), now.getMinutes());
+
+                const type = document.getElementById('typeInput').value;
+                const catParts = document.getElementById('combinedCategoryInput').value.split(',');
+                const payment = document.getElementById('paymentInput').value;
+                const note = document.getElementById('noteInput').value;
+                const cat = catParts[0]; 
+                const sub = catParts[1] || ''; 
+                
+                // 取得分期期數 (自訂或選單)
+                let inst = 1;
+                if (type === 'expense' && payment === 'credit') {
+                    const selectVal = document.getElementById('installmentSelect').value;
+                    if (selectVal === 'custom') {
+                        inst = parseInt(document.getElementById('installmentCustomInput').value);
+                        if (!inst || inst < 1) return alert("請輸入有效的自訂期數");
+                    } else {
+                        inst = parseInt(selectVal);
+                    }
+                }
+                
+                const batch = db.batch();
+                const grpId = Date.now().toString(); 
+                
+                const baseDate = new Date(dateVal); 
+                const now = new Date(); 
+                baseDate.setHours(now.getHours(), now.getMinutes());
                 const createdAt = new Date().toISOString();
 
-                if(editingId) { await db.collection("transactions").doc(editingId).delete(); }
-                if(inst > 1) { const per=Math.round(amt/inst); for(let i=0;i<inst;i++){ const ref=db.collection("transactions").doc(), d=new Date(baseDate); d.setMonth(d.getMonth()+i); batch.set(ref,{amount:per,type,category:cat,subCategory:sub,payment,installment:inst,note:`${note}(${i+1}/${inst})`,date:d.toISOString(),groupId:grpId, createdAt: createdAt}); }}
-                else batch.set(db.collection("transactions").doc(),{amount:amt,type,category:cat,subCategory:sub,payment,installment:1,note,date:baseDate.toISOString(), createdAt: createdAt});
+                // 刪除舊資料邏輯 (如果是編輯模式)
+                if (editingGroupId) {
+                    const oldGroup = await db.collection("transactions").where("groupId", "==", editingGroupId).get();
+                    oldGroup.forEach(doc => batch.delete(doc.ref));
+                } else if (editingId) {
+                    batch.delete(db.collection("transactions").doc(editingId));
+                }
+
+                // 建立新資料邏輯
+                if (inst > 1) { 
+                    const per = Math.round(amt / inst); 
+                    for (let i = 0; i < inst; i++) { 
+                        const ref = db.collection("transactions").doc();
+                        const d = new Date(baseDate); 
+                        d.setMonth(d.getMonth() + i); 
+                        
+                        batch.set(ref, {
+                            amount: per,
+                            type,
+                            category: cat,
+                            subCategory: sub,
+                            payment,
+                            installment: inst,
+                            note: `${note} (${i + 1}/${inst})`, 
+                            date: d.toISOString(),
+                            groupId: grpId, 
+                            createdAt: createdAt
+                        }); 
+                    }
+                } else {
+                    const ref = db.collection("transactions").doc();
+                    batch.set(ref, {
+                        amount: amt,
+                        type,
+                        category: cat,
+                        subCategory: sub,
+                        payment,
+                        installment: 1,
+                        note,
+                        date: baseDate.toISOString(),
+                        createdAt: createdAt
+                    });
+                }
                 
                 await batch.commit(); 
                 closeAddModal();
                 showSuccessToast();
             } catch(e) { alert("儲存失敗: " + e.message); console.error(e); }
+        }
+
+        // 修改刪除邏輯：支援整組刪除
+        async function deleteTransaction(id) {
+            try {
+                const doc = await db.collection("transactions").doc(id).get();
+                const data = doc.data();
+
+                if (data.groupId) {
+                    if (confirm(`這是一筆分期付款紀錄 (${data.installment}期)。\n要刪除「整組」所有期數嗎？\n(按「取消」則只刪除這一筆)`)) {
+                        const snapshot = await db.collection("transactions").where("groupId", "==", data.groupId).get();
+                        const batch = db.batch();
+                        snapshot.forEach(doc => batch.delete(doc.ref));
+                        await batch.commit();
+                        showSuccessToast();
+                        return;
+                    }
+                }
+                
+                if(confirm("確定刪除此筆紀錄？")) {
+                     await db.collection("transactions").doc(id).delete();
+                }
+            } catch (e) { console.error(e); alert("刪除失敗"); }
+        }
+        
+        // 修改編輯邏輯：支援還原總金額與分期設定
+        function editTransaction(id) {
+            const t = transactions.find(x => x.id === id); 
+            if(!t) return; 
+
+            editingId = id;
+            editingGroupId = t.groupId || null;
+
+            document.getElementById('addModal').classList.remove('hidden'); 
+            
+            // 如果是分期付款，還原總金額
+            if (editingGroupId && t.installment > 1) {
+                const totalAmount = t.amount * t.installment;
+                document.getElementById('amountInput').value = totalAmount;
+                alert(`注意：您正在編輯一筆 ${t.installment} 期的分期付款。\n金額已自動還原為「總金額」。\n\n⚠️ 儲存後將會刪除舊的所有分期，並重新建立。`);
+            } else {
+                document.getElementById('amountInput').value = t.amount; 
+            }
+
+            document.getElementById('noteInput').value = t.note.replace(/\s\(\d+\/\d+\)$/,''); 
+            document.getElementById('typeInput').value = t.type;
+            
+            updateCategories();
+            const sel = document.getElementById('combinedCategoryInput'); 
+            for(let i=0; i<sel.options.length; i++) {
+                if(sel.options[i].value.includes(t.subCategory)) sel.selectedIndex=i;
+            }
+            
+            renderQuickTags();
+
+            document.getElementById('paymentInput').value = t.payment || 'cash';
+            
+            // 還原分期設定 UI
+            if(t.payment === 'credit') {
+                const standard = ['1', '3', '6', '12'];
+                const instStr = t.installment.toString();
+                
+                if (standard.includes(instStr)) {
+                    document.getElementById('installmentSelect').value = instStr;
+                    document.getElementById('installmentCustomInput').classList.add('hidden');
+                } else {
+                    document.getElementById('installmentSelect').value = 'custom';
+                    document.getElementById('installmentCustomInput').value = t.installment;
+                    document.getElementById('installmentCustomInput').classList.remove('hidden');
+                }
+            } else {
+                document.getElementById('installmentSelect').value = '1';
+                document.getElementById('installmentCustomInput').classList.add('hidden');
+            }
+            
+            toggleInstallment();
+            
+            const d = new Date(t.date);
+            document.getElementById('dateInput').value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
         }
 
         function showSuccessToast() {
@@ -536,47 +703,6 @@
             setTimeout(() => { toast.classList.add('hidden'); }, 1500);
         }
 
-        async function deleteTransaction(id) { await db.collection("transactions").doc(id).delete(); }
-        
-        function editTransaction(id) {
-            const t = transactions.find(x => x.id === id); if(!t) return; editingId = id;
-            document.getElementById('addModal').classList.remove('hidden'); 
-            document.getElementById('amountInput').value = t.amount; 
-            document.getElementById('noteInput').value = t.note.replace(/\s\(\d+\/\d+\)$/,'');
-            const sel = document.getElementById('combinedCategoryInput'); 
-            document.getElementById('typeInput').value = t.type;
-            updateCategories();
-            for(let i=0; i<sel.options.length; i++) if(sel.options[i].value===`${t.category},${t.subCategory}`) sel.selectedIndex=i;
-            
-            // 編輯時也要渲染標籤
-            renderQuickTags();
-
-            document.getElementById('paymentInput').value = t.payment || 'cash';
-            if(t.payment === 'credit' && t.installment > 1) {
-                document.getElementById('installmentInput').value = t.installment;
-            } else {
-                document.getElementById('installmentInput').value = '1';
-            }
-            toggleInstallment();
-        }
-
-        function updateCategories() {
-            const s=document.getElementById('combinedCategoryInput'), t=document.getElementById('typeInput').value, f=document.getElementById('expenseOnlyFields'); s.innerHTML='';
-            if(t==='income') { f.classList.add('hidden'); s.innerHTML='<option value="薪資,本薪">💰 薪資</option><option value="獎金,績效">🧧 獎金</option>'; }
-            else { 
-                f.classList.remove('hidden'); 
-                Object.entries(categories).forEach(([k,v])=>{
-                    const g=document.createElement('optgroup');
-                    const icon = getCategoryIcon(k); 
-                    g.label = `${icon} ${k}`;        
-                    v.forEach(i=>g.innerHTML+=`<option value="${k},${i}">${i}</option>`);
-                    s.appendChild(g);
-                }); 
-            }
-            // 更新類別後，也要重刷標籤，確保畫面同步
-            renderQuickTags();
-        }
-        function toggleInstallment() { document.getElementById('installmentBlock').classList.toggle('hidden', !(document.getElementById('paymentInput').value==='credit')); }
         function saveSettings() { appSettings.creditLimit = parseInt(document.getElementById('creditLimitInput').value); appSettings.monthlyLimit = parseInt(document.getElementById('monthlyLimitInput').value); localStorage.setItem('appSettings', JSON.stringify(appSettings)); loadData(); alert("設定已儲存"); }
         async function exportToCSV() { if(!confirm("匯出?")) return; const s = await db.collection("transactions").orderBy("date","desc").get(); let c = "\uFEFFDate,Type,Cat,Sub,Amt,Note\n"; s.forEach(d=>{const t=d.data();c+=`${new Date(t.date).toLocaleDateString()},${t.type},${t.category},${t.subCategory},${t.amount},${t.note}\n`}); const l = document.createElement("a"); l.href=URL.createObjectURL(new Blob([c],{type:'text/csv'})); l.download="backup.csv"; l.click(); }
     </script>
