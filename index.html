@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>家庭記帳本 v6.1 (溯源修正版)</title>
+    <title>家庭記帳本 v6.2 (索引免設定版)</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1041/1041888.png">
@@ -380,6 +380,7 @@
                 if(t.type === 'expense') { subTotal += amt; pieData[t.category] = (pieData[t.category] || 0) + amt; } 
                 const d = new Date(t.date), isExp = t.type === 'expense'; 
                 
+                // [修復] 這裡之前寫成 confirmDelete，現在已修正為 deleteTransaction
                 list.innerHTML += `
                 <div class="swipe-item-container" ontouchstart="handleTouchStart(event)" ontouchmove="handleTouchMove(event)" ontouchend="handleTouchEnd(event)">
                     <div class="swipe-actions">
@@ -569,6 +570,7 @@
 
                 // 刪除舊資料邏輯 (如果是編輯模式)
                 if (editingGroupId) {
+                    // [修復] 改用不需索引的查詢：先抓全部，再刪除
                     const oldGroup = await db.collection("transactions").where("groupId", "==", editingGroupId).get();
                     oldGroup.forEach(doc => batch.delete(doc.ref));
                 } else if (editingId) {
@@ -581,9 +583,7 @@
                     for (let i = 0; i < inst; i++) { 
                         const ref = db.collection("transactions").doc();
                         
-                        // [V6.1 最終邏輯] 
-                        // 第1期：維持使用者輸入的確切日期
-                        // 第2期以後：往後推月，強制設為1號
+                        // [V6.0 邏輯] 第2期開始，日期強制為每月1號
                         let d;
                         if (i === 0) {
                             d = new Date(baseDate); 
@@ -633,6 +633,7 @@
 
                 if (data.groupId) {
                     if (confirm(`這是一筆分期付款紀錄 (${data.installment}期)。\n要刪除「整組」所有期數嗎？\n(按「取消」則只刪除這一筆)`)) {
+                        // [修復] 改用不需索引的查詢
                         const snapshot = await db.collection("transactions").where("groupId", "==", data.groupId).get();
                         const batch = db.batch();
                         snapshot.forEach(doc => batch.delete(doc.ref));
@@ -648,7 +649,7 @@
             } catch (e) { console.error(e); alert("刪除失敗"); }
         }
         
-        // 修改編輯邏輯：溯源查找第一期日期 (Async)
+        // 修改編輯邏輯：溯源查找第一期日期 (Client-side sorting)
         async function editTransaction(id) {
             // 先從本地列表找基本資料
             const t = transactions.find(x => x.id === id); 
@@ -667,23 +668,28 @@
                 const totalAmount = t.amount * t.installment;
                 document.getElementById('amountInput').value = totalAmount;
                 
-                // [V6.1 新增] 去資料庫找這組 ID 的第一筆資料 (order by date asc limit 1)
+                // [V6.2 關鍵修正] 解決 "The query requires an index" 錯誤
+                // 不使用 orderBy("date")，而是抓全部回來自己排序
                 try {
                     const snap = await db.collection("transactions")
                         .where("groupId", "==", editingGroupId)
-                        .orderBy("date", "asc")
-                        .limit(1)
                         .get();
                         
                     if (!snap.empty) {
-                        const firstDoc = snap.docs[0].data();
-                        targetDate = new Date(firstDoc.date); // 抓到真正的第一期日期了！
+                        // 將 Firestore 文件轉換為陣列並按日期排序
+                        const docs = [];
+                        snap.forEach(doc => docs.push(doc.data()));
+                        docs.sort((a, b) => new Date(a.date) - new Date(b.date));
+                        
+                        // 取第一筆 (也就是真正的第一期)
+                        const firstDoc = docs[0];
+                        targetDate = new Date(firstDoc.date); 
                     }
                 } catch(e) {
                     console.error("溯源失敗", e);
                 }
 
-                alert(`注意：您正在編輯一筆 ${t.installment} 期的分期付款。\n金額已還原為總額。\n日期已自動對齊至「第 1 期」的原始日期。`);
+                alert(`注意：您正在編輯一筆 ${t.installment} 期的分期付款。\n金額已還原為總額。\n日期已自動對齊至「第 1 期」的原始日期 (${targetDate.getMonth()+1}/${targetDate.getDate()})。`);
             } else {
                 document.getElementById('amountInput').value = t.amount; 
             }
