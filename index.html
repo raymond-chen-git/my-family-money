@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>家庭記帳本 v5.0 (優化版)</title>
+    <title>家庭記帳本 v5.3 (標籤快選版)</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1041/1041888.png">
@@ -46,6 +46,10 @@
         .month-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; }
         .picker-btn { padding: 0.5rem; border-radius: 0.5rem; font-size: 0.875rem; text-align: center; font-weight: 500; transition: all 0.2s; border: 1px solid #f3f4f6; }
         .picker-btn.active { background-color: #10B981; color: white; border-color: #10B981; }
+
+        /* 快選標籤樣式 */
+        .tag-btn { font-size: 0.75rem; padding: 4px 10px; border-radius: 20px; border: 1px solid #e5e7eb; background-color: white; color: #4b5563; transition: all 0.2s; white-space: nowrap; }
+        .tag-btn:active { background-color: #d1fae5; color: #059669; border-color: #10b981; transform: scale(0.95); }
     </style>
 </head>
 <body>
@@ -164,27 +168,6 @@
                             <div class="relative"><span class="text-xs text-gray-400 absolute left-3 top-[-8px] bg-white px-1">總信用額度</span><input type="number" id="creditLimitInput" class="w-full bg-gray-50 rounded-xl py-3 pl-3 text-lg font-bold text-gray-800 outline-none pl-8" placeholder="200000" onchange="saveSettings()"><span class="absolute left-3 top-3 text-gray-400">$</span></div>
                         </div>
                     </div>
-                    
-                    <div class="p-5 border-b border-gray-50">
-                        <label class="text-sm text-gray-500 block mb-3 font-bold">新增類別細項</label>
-                        <div class="space-y-3">
-                            <div class="relative">
-                                <span class="text-xs text-gray-400 absolute left-3 top-[-8px] bg-white px-1 z-10">選擇大類別</span>
-                                <select id="settingCatSelect" class="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm font-bold text-gray-800 outline-none border border-transparent focus:bg-white focus:border-green-500 appearance-none">
-                                    </select>
-                                <div class="absolute right-4 top-3.5 text-gray-400 pointer-events-none"><i class="fas fa-chevron-down"></i></div>
-                            </div>
-                            <div class="flex gap-2">
-                                <input type="text" id="newSubCatName" class="flex-1 bg-gray-50 rounded-xl px-4 py-3 text-sm font-bold text-gray-800 outline-none focus:bg-white border border-transparent focus:border-green-500 transition" placeholder="輸入新細項 (例: 下午茶)">
-                                <button onclick="addCustomSubCategory()" class="bg-gray-800 text-white w-12 rounded-xl flex items-center justify-center active:scale-95 transition shadow-lg"><i class="fas fa-plus"></i></button>
-                            </div>
-                            <p class="text-[10px] text-gray-400 pl-1"><i class="fas fa-cloud-upload-alt mr-1"></i>設定將自動同步至雲端</p>
-                        </div>
-                    </div>
-
-                    <div class="p-5">
-                        <button onclick="resetCategories()" class="w-full py-3 bg-gray-50 text-red-400 text-xs font-bold rounded-xl hover:bg-red-50 hover:text-red-500 transition">重置回預設類別</button>
-                    </div>
                 </div>
                 <button onclick="exportToCSV()" class="w-full bg-white hover:bg-gray-50 text-gray-600 font-bold rounded-2xl py-4 shadow-sm flex items-center justify-center border border-gray-200 transition active:scale-95"><i class="fas fa-file-csv mr-2 text-blue-500 text-xl"></i> 匯出 CSV 備份</button>
             </div>
@@ -204,12 +187,18 @@
                 <div class="space-y-4">
                     <div class="relative"><span class="absolute left-0 top-3 text-xl text-gray-400">$</span><input type="number" id="amountInput" class="w-full pl-6 text-4xl font-bold border-b border-gray-200 py-2 outline-none text-gray-800" placeholder="0" inputmode="decimal"></div>
                     <div class="flex space-x-3"><input type="date" id="dateInput" class="bg-gray-50 border-none rounded-xl px-4 py-3 text-gray-700 font-bold outline-none w-1/2 text-sm"><select id="typeInput" onchange="updateCategories()" class="bg-gray-50 border-none rounded-xl px-4 py-3 text-gray-700 font-bold outline-none w-1/2 text-sm"><option value="expense">支出</option><option value="income">收入</option></select></div>
-                    <select id="combinedCategoryInput" class="w-full bg-gray-50 border-none rounded-xl p-4 font-bold text-gray-700 outline-none text-base"></select>
+                    <select id="combinedCategoryInput" onchange="renderQuickTags()" class="w-full bg-gray-50 border-none rounded-xl p-4 font-bold text-gray-700 outline-none text-base"></select>
+                    
                     <div id="expenseOnlyFields" class="space-y-4">
                         <select id="paymentInput" onchange="toggleInstallment()" class="w-full bg-gray-50 border-none rounded-xl p-4 text-gray-700 outline-none text-base"><option value="cash">現金</option><option value="credit">信用卡</option><option value="linepay">行動支付</option><option value="transfer">轉帳</option></select>
                         <div id="installmentBlock" class="hidden bg-indigo-50 p-3 rounded-xl"><div class="flex justify-between text-xs text-indigo-500 font-bold mb-1"><span>分期付款</span><span>自動計入未來</span></div><select id="installmentInput" class="w-full bg-white border-none rounded-lg p-2 text-sm text-gray-700 outline-none"><option value="1">一次付清</option><option value="3">3期</option><option value="6">6期</option><option value="12">12期</option></select></div>
                     </div>
-                    <input type="text" id="noteInput" class="w-full border border-gray-200 rounded-xl p-3 text-base outline-none focus:border-green-500" placeholder="備註...">
+
+                    <div class="space-y-2">
+                        <div id="quickTagContainer" class="flex flex-wrap gap-2 px-1 min-h-[1.5rem]"></div>
+                        <input type="text" id="noteInput" class="w-full border border-gray-200 rounded-xl p-3 text-base outline-none focus:border-green-500" placeholder="備註...">
+                    </div>
+                    
                     <button id="submitBtn" onclick="submitForm()" class="w-full bg-gray-900 text-white font-bold rounded-xl py-4 shadow-lg active:scale-95 transition mt-2 text-lg">儲存</button>
                 </div>
             </div>
@@ -228,18 +217,32 @@
     </div>
 
     <script>
-        const defaultCategories = { 
-            '飲食':['早餐','午餐','晚餐','飲料','聚餐','生鮮'], 
-            '購物':['衣物','日用','3C','雜貨','美妝'], 
-            '居住':['房租','水電','網路','瓦斯','管理費'], 
-            '交通':['捷運/公車','火車/高鐵','計程車','飛機','加油','停車','維修/保養'], 
-            '子女':['學費/安親','衣物','用品/尿布','玩具','醫療'], 
-            '娛樂':['電影','遊戲','訂閱','旅遊','聚會'], 
-            '醫療':['掛號','藥品','保健','保險'], 
-            '投資':['股票','基金','外匯','虛擬貨幣','其他'], 
-            '其他':['稅金','進修','雜支','其他'] 
+        const categories = { 
+            '飲食': ['三餐', '飲料', '生鮮食材', '零食/點心'], 
+            '居住': ['房租/管理費', '水電瓦斯', '手機網路', '維修/修繕'], 
+            '交通': ['大眾運輸', '計程車', '加油', '停車/過路費', '保養維修'], 
+            '購物': ['日常用品', '衣物飾品', '美妝保養', '3C家電', '雜貨'], 
+            '娛樂': ['休閒娛樂', '訂閱服務', '旅遊/住宿', '電影/展覽', '遊戲'], 
+            '醫療': ['看診/掛號', '藥品/耗材', '保健食品'], 
+            '保險': ['醫療/壽險', '儲蓄險', '車險/產險', '其他保險'], 
+            '子女': ['學費/安親', '尿布/奶粉', '衣物/玩具'], 
+            '投資': ['股票', '基金', '外匯', '虛擬貨幣'], 
+            '社交': ['孝親費', '送禮', '紅包', '奠儀'], 
+            '其他': ['稅金', '罰單', '捐款', '雜支'] 
         };
-        let categories = JSON.parse(JSON.stringify(defaultCategories));
+
+        // 快選標籤設定
+        const categoryTags = {
+            '三餐': ['早餐', '午餐', '晚餐', '宵夜', '自助餐', '便當'],
+            '飲料': ['手搖', '咖啡', '超商', '牛奶'],
+            '大眾運輸': ['捷運', '公車', '火車', '高鐵', 'YouBike'],
+            '計程車': ['Uber', '計程車'],
+            '日常用品': ['衛生紙', '洗衣精', '垃圾袋'],
+            '看診/掛號': ['感冒', '牙醫', '眼科', '健檢'],
+            '加油': ['汽車', '機車'],
+            '休閒娛樂': ['KTV', '電影'],
+            '維修/修繕': ['水電', '冷氣', '家具']
+        };
 
         const firebaseConfig = { apiKey: "AIzaSyB0Q0uKPDyKZHD5wnSFnf-hlKqC0aD2oTs", authDomain: "ourfamilymoney-57b36.firebaseapp.com", projectId: "ourfamilymoney-57b36", storageBucket: "ourfamilymoney-57b36.firebasestorage.app", messagingSenderId: "94253141932", appId: "1:94253141932:web:d25f33fc539b171d667409" };
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
@@ -255,55 +258,14 @@
         document.getElementById('creditLimitInput').value = appSettings.creditLimit;
         document.getElementById('monthlyLimitInput').value = appSettings.monthlyLimit;
         
-        loadCategoriesFromCloud();
+        refreshCategoryUI();
         loadData();
         loadRecentTransactions();
-
-        async function loadCategoriesFromCloud() {
-            try {
-                const doc = await db.collection("settings").doc("categoryConfig").get();
-                if (doc.exists) { categories = doc.data().data; } 
-                else { await db.collection("settings").doc("categoryConfig").set({ data: categories }); }
-                refreshCategoryUI();
-            } catch (e) { console.error("設定讀取失敗", e); }
-        }
-
-        async function addCustomSubCategory() {
-            const mainCat = document.getElementById('settingCatSelect').value;
-            const newSub = document.getElementById('newSubCatName').value.trim();
-            if (!newSub) return alert("請輸入細項名稱");
-            if (!categories[mainCat]) return alert("大類別錯誤");
-            if (categories[mainCat].includes(newSub)) return alert("此細項已存在");
-            categories[mainCat].push(newSub);
-            try {
-                await db.collection("settings").doc("categoryConfig").set({ data: categories });
-                document.getElementById('newSubCatName').value = ''; 
-                refreshCategoryUI();
-                alert(`已新增「${newSub}」至 ${getCategoryIcon(mainCat)}${mainCat}`);
-            } catch(e) { alert("儲存失敗: " + e.message); }
-        }
-
-        function resetCategories() {
-            if(confirm("確定重置回預設值？(這會套用新的排序)")) {
-                categories = JSON.parse(JSON.stringify(defaultCategories));
-                db.collection("settings").doc("categoryConfig").set({ data: categories }).then(()=>refreshCategoryUI());
-            }
-        }
 
         function refreshCategoryUI() {
             initCategoryFilter(); 
             updateCategories();
-            initSettingsCategorySelect(); 
             renderHistory();
-        }
-
-        function initSettingsCategorySelect() {
-            const sel = document.getElementById('settingCatSelect');
-            sel.innerHTML = '';
-            Object.keys(categories).forEach(c => {
-                const icon = getCategoryIcon(c); 
-                sel.innerHTML += `<option value="${c}">${icon} ${c}</option>`; 
-            });
         }
 
         function switchTab(tabId) {
@@ -319,7 +281,6 @@
             if (tabId === 'settings') { 
                 document.getElementById('monthNav').classList.add('hidden'); 
                 document.getElementById('yearNav').classList.add('hidden'); 
-                initSettingsCategorySelect();
             } else if (tabId === 'analysis') { 
                 document.getElementById('monthNav').classList.add('hidden'); 
                 document.getElementById('yearNav').classList.remove('hidden'); 
@@ -454,7 +415,6 @@
         function handleTouchMove(evt) { if (!xDown || !yDown) return; let xDiff = xDown - evt.touches[0].clientX, yDiff = yDown - evt.touches[0].clientY; if (Math.abs(xDiff) > Math.abs(yDiff)) { if (xDiff > 0) evt.currentTarget.classList.add('swiped'); else evt.currentTarget.classList.remove('swiped'); } }
         function handleTouchEnd(evt) { xDown = null; yDown = null; }
         
-        // 修正：移除密碼檢查，直接確認刪除
         function confirmDelete(id) { 
             if(confirm("確定刪除此筆紀錄？")) {
                 deleteTransaction(id);
@@ -484,7 +444,7 @@
             if(lastTotal === 0) { elDiff.innerText = `$${Math.round(thisTotal).toLocaleString()}`; elDiff.className = "text-3xl font-bold text-gray-800"; elText.innerText = "上月無資料"; } else { const pct = Math.round((Math.abs(diff)/lastTotal)*100); if(diff > 0) { elDiff.innerText = `+${Math.round(diff).toLocaleString()}`; elDiff.className = "text-3xl font-bold text-red-500"; elText.innerText = `比上月多 ${pct}%`; elText.className = "text-xs text-red-400 mt-1 font-bold"; } else { elDiff.innerText = `${Math.round(diff).toLocaleString()}`; elDiff.className = "text-3xl font-bold text-green-500"; elText.innerText = `比上月少 ${pct}%`; elText.className = "text-xs text-green-500 mt-1 font-bold"; } }
             document.getElementById('lastMonthTotalDisplay').innerText = `$${Math.round(lastTotal).toLocaleString()}`;
         }
-        function getCategoryIcon(c) { const map = {'飲食':'🍔','交通':'🚗','娛樂':'🎮','購物':'🛍️','居住':'🏠','醫療':'💊','子女':'👶','投資':'📈','其他':'📝'}; if(c === '捷運' || c === '公車') return '🚌'; return map[c] || '🏷️'; }
+        function getCategoryIcon(c) { const map = {'飲食':'🍔','交通':'🚗','娛樂':'🎮','購物':'🛍️','居住':'🏠','醫療':'💊','子女':'👶','投資':'📈','社交':'🧧','保險':'🛡️','其他':'📝'}; if(c === '捷運' || c === '公車') return '🚌'; return map[c] || '🏷️'; }
         
         function renderAnnualDetails() {
             const filter = document.getElementById('annualCatFilter').value, list = document.getElementById('annualDetailsList'); list.innerHTML = ''; let data = [];
@@ -497,23 +457,44 @@
         function renderTrendChart(data) { const ctx = document.getElementById('trendChart').getContext('2d'); if(trendChart) trendChart.destroy(); trendChart = new Chart(ctx, { type: 'line', data: { labels: Array.from({length:12},(_,i)=>`${i+1}月`), datasets: [{ label: '支出', data: data, borderColor: '#10B981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.3, pointRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: {display: false} }, scales: { x: {grid:{display:false}}, y: {display:false} } } }); }
         function renderYearPie(data) { const ctx = document.getElementById('yearPieChart').getContext('2d'); const entries = Object.entries(data).sort((a,b)=>b[1]-a[1]); if(yearPieChart) yearPieChart.destroy(); yearPieChart = new Chart(ctx, { type: 'doughnut', data: { labels: entries.map(x=>x[0]), datasets: [{ data: entries.map(x=>x[1]), backgroundColor: ['#10B981','#3B82F6','#F59E0B','#EF4444','#8B5CF6','#EC4899','#6366F1','#14B8A6'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: {position: 'right', labels:{boxWidth:12}} } } }); }
 
-        // 修正：開啟 Modal 時強制重置所有輸入狀態，包含隱藏分期與重置付款方式
         function openAddModal() { 
             document.getElementById('addModal').classList.remove('hidden'); 
             const n=new Date(); 
             document.getElementById('dateInput').value=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
             
-            // 重置輸入狀態
             document.getElementById('amountInput').value = '';
             document.getElementById('noteInput').value = '';
-            document.getElementById('paymentInput').value = 'cash'; // 預設回現金
-            document.getElementById('installmentInput').value = '1'; // 預設回一次付清
-            toggleInstallment(); // 確保 UI 同步隱藏分期選單
+            document.getElementById('paymentInput').value = 'cash'; 
+            document.getElementById('installmentInput').value = '1'; 
+            toggleInstallment(); 
             updateCategories(); 
         }
         
         function closeAddModal() { document.getElementById('addModal').classList.add('hidden'); editingId=null; }
         
+        // 渲染快選標籤
+        function renderQuickTags() {
+            const combinedVal = document.getElementById('combinedCategoryInput').value;
+            const subCategory = combinedVal.split(',')[1]; // 取得細項名稱 (例如: "三餐")
+            const container = document.getElementById('quickTagContainer');
+            container.innerHTML = '';
+
+            if (categoryTags[subCategory]) {
+                categoryTags[subCategory].forEach(tag => {
+                    const btn = document.createElement('button');
+                    btn.className = 'tag-btn';
+                    btn.innerText = tag;
+                    btn.onclick = () => {
+                        const noteInput = document.getElementById('noteInput');
+                        const currentVal = noteInput.value;
+                        // 如果備註是空的，直接填入；如果已有內容，加空格後填入
+                        noteInput.value = currentVal ? `${currentVal} ${tag}` : tag;
+                    };
+                    container.appendChild(btn);
+                });
+            }
+        }
+
         async function submitForm() {
             try {
                 const amt = parseFloat(document.getElementById('amountInput').value), dateVal = document.getElementById('dateInput').value;
@@ -544,7 +525,7 @@
         
         function editTransaction(id) {
             const t = transactions.find(x => x.id === id); if(!t) return; editingId = id;
-            document.getElementById('addModal').classList.remove('hidden'); // 不使用 openAddModal 以免被重置邏輯覆蓋
+            document.getElementById('addModal').classList.remove('hidden'); 
             document.getElementById('amountInput').value = t.amount; 
             document.getElementById('noteInput').value = t.note.replace(/\s\(\d+\/\d+\)$/,'');
             const sel = document.getElementById('combinedCategoryInput'); 
@@ -552,7 +533,9 @@
             updateCategories();
             for(let i=0; i<sel.options.length; i++) if(sel.options[i].value===`${t.category},${t.subCategory}`) sel.selectedIndex=i;
             
-            // 恢復付款與分期狀態
+            // 編輯時也要渲染標籤
+            renderQuickTags();
+
             document.getElementById('paymentInput').value = t.payment || 'cash';
             if(t.payment === 'credit' && t.installment > 1) {
                 document.getElementById('installmentInput').value = t.installment;
@@ -575,6 +558,8 @@
                     s.appendChild(g);
                 }); 
             }
+            // 更新類別後，也要重刷標籤
+            renderQuickTags();
         }
         function toggleInstallment() { document.getElementById('installmentBlock').classList.toggle('hidden', !(document.getElementById('paymentInput').value==='credit')); }
         function saveSettings() { appSettings.creditLimit = parseInt(document.getElementById('creditLimitInput').value); appSettings.monthlyLimit = parseInt(document.getElementById('monthlyLimitInput').value); localStorage.setItem('appSettings', JSON.stringify(appSettings)); loadData(); alert("設定已儲存"); }
