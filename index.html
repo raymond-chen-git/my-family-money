@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>家庭記帳本 v5.3 (標籤快選版)</title>
+    <title>家庭記帳本 v5.4 (客製標籤版)</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1041/1041888.png">
@@ -48,7 +48,7 @@
         .picker-btn.active { background-color: #10B981; color: white; border-color: #10B981; }
 
         /* 快選標籤樣式 */
-        .tag-btn { font-size: 0.75rem; padding: 4px 10px; border-radius: 20px; border: 1px solid #e5e7eb; background-color: white; color: #4b5563; transition: all 0.2s; white-space: nowrap; }
+        .tag-btn { font-size: 0.8rem; padding: 6px 12px; border-radius: 20px; border: 1px solid #e5e7eb; background-color: white; color: #4b5563; transition: all 0.2s; white-space: nowrap; font-weight: 500; }
         .tag-btn:active { background-color: #d1fae5; color: #059669; border-color: #10b981; transform: scale(0.95); }
     </style>
 </head>
@@ -195,7 +195,7 @@
                     </div>
 
                     <div class="space-y-2">
-                        <div id="quickTagContainer" class="flex flex-wrap gap-2 px-1 min-h-[1.5rem]"></div>
+                        <div id="quickTagContainer" class="flex flex-wrap gap-2 px-1 min-h-[0.5rem]"></div>
                         <input type="text" id="noteInput" class="w-full border border-gray-200 rounded-xl p-3 text-base outline-none focus:border-green-500" placeholder="備註...">
                     </div>
                     
@@ -217,31 +217,41 @@
     </div>
 
     <script>
+        // 修正後的類別結構
         const categories = { 
-            '飲食': ['三餐', '飲料', '生鮮食材', '零食/點心'], 
+            '飲食': ['外食', '飲料', '生鮮食材', '零食/點心'], 
             '居住': ['房租/管理費', '水電瓦斯', '手機網路', '維修/修繕'], 
             '交通': ['大眾運輸', '計程車', '加油', '停車/過路費', '保養維修'], 
-            '購物': ['日常用品', '衣物飾品', '美妝保養', '3C家電', '雜貨'], 
-            '娛樂': ['休閒娛樂', '訂閱服務', '旅遊/住宿', '電影/展覽', '遊戲'], 
+            '購物': ['日常用品', '衣物飾品', '美妝保養', '家電', '3C產品', '雜貨'], // 3C家電已拆分
+            '娛樂': ['休閒娛樂', '訂閱服務', '旅遊/住宿', '遊戲'], // 移除了電影展覽
             '醫療': ['看診/掛號', '藥品/耗材', '保健食品'], 
             '保險': ['醫療/壽險', '儲蓄險', '車險/產險', '其他保險'], 
-            '子女': ['學費/安親', '尿布/奶粉', '衣物/玩具'], 
+            '子女': ['學費/安親', '尿布', '奶粉', '衣物/玩具', '其他母嬰用品'], // 尿布/奶粉已拆分，新增其他母嬰
             '投資': ['股票', '基金', '外匯', '虛擬貨幣'], 
             '社交': ['孝親費', '送禮', '紅包', '奠儀'], 
             '其他': ['稅金', '罰單', '捐款', '雜支'] 
         };
 
-        // 快選標籤設定
+        // 客製化快選標籤設定
         const categoryTags = {
-            '三餐': ['早餐', '午餐', '晚餐', '宵夜', '自助餐', '便當'],
-            '飲料': ['手搖', '咖啡', '超商', '牛奶'],
-            '大眾運輸': ['捷運', '公車', '火車', '高鐵', 'YouBike'],
-            '計程車': ['Uber', '計程車'],
-            '日常用品': ['衛生紙', '洗衣精', '垃圾袋'],
-            '看診/掛號': ['感冒', '牙醫', '眼科', '健檢'],
-            '加油': ['汽車', '機車'],
-            '休閒娛樂': ['KTV', '電影'],
-            '維修/修繕': ['水電', '冷氣', '家具']
+            '外食': ['早餐', '午餐', '晚餐', '宵夜'],
+            '飲料': ['手搖', '咖啡'],
+            
+            '大眾運輸': ['捷運', '公車', '火車', '高鐵'],
+            '加油': ['機車', '汽車'],
+            '保養維修': ['洗車'],
+            
+            '衣物飾品': ['衣物', '鞋子', '包包'],
+            '美妝保養': ['美妝', '保養', '美容美髮'],
+            '3C產品': ['手機', '電腦'],
+            
+            '房租/管理費': ['房租', '管理費'],
+            '手機網路': ['手機月租', '網路月租'],
+            
+            '訂閱服務': ['YT', 'NETFLIX', 'ICLOUD', 'GOOGLE雲端'],
+            '旅遊/住宿': ['機票', '住宿'],
+            
+            '其他母嬰用品': ['濕紙巾', '寶寶零食']
         };
 
         const firebaseConfig = { apiKey: "AIzaSyB0Q0uKPDyKZHD5wnSFnf-hlKqC0aD2oTs", authDomain: "ourfamilymoney-57b36.firebaseapp.com", projectId: "ourfamilymoney-57b36", storageBucket: "ourfamilymoney-57b36.firebasestorage.app", messagingSenderId: "94253141932", appId: "1:94253141932:web:d25f33fc539b171d667409" };
@@ -472,10 +482,10 @@
         
         function closeAddModal() { document.getElementById('addModal').classList.add('hidden'); editingId=null; }
         
-        // 渲染快選標籤
+        // 渲染快選標籤 (核心邏輯)
         function renderQuickTags() {
             const combinedVal = document.getElementById('combinedCategoryInput').value;
-            const subCategory = combinedVal.split(',')[1]; // 取得細項名稱 (例如: "三餐")
+            const subCategory = combinedVal.split(',')[1];
             const container = document.getElementById('quickTagContainer');
             container.innerHTML = '';
 
@@ -484,11 +494,16 @@
                     const btn = document.createElement('button');
                     btn.className = 'tag-btn';
                     btn.innerText = tag;
-                    btn.onclick = () => {
+                    btn.onclick = (e) => {
+                        e.preventDefault(); 
                         const noteInput = document.getElementById('noteInput');
-                        const currentVal = noteInput.value;
-                        // 如果備註是空的，直接填入；如果已有內容，加空格後填入
-                        noteInput.value = currentVal ? `${currentVal} ${tag}` : tag;
+                        const currentVal = noteInput.value.trim();
+                        // 智慧填入邏輯：如果已有文字，自動補空白鍵
+                        if (currentVal) {
+                            noteInput.value = currentVal + ' ' + tag;
+                        } else {
+                            noteInput.value = tag;
+                        }
                     };
                     container.appendChild(btn);
                 });
@@ -558,7 +573,7 @@
                     s.appendChild(g);
                 }); 
             }
-            // 更新類別後，也要重刷標籤
+            // 更新類別後，也要重刷標籤，確保畫面同步
             renderQuickTags();
         }
         function toggleInstallment() { document.getElementById('installmentBlock').classList.toggle('hidden', !(document.getElementById('paymentInput').value==='credit')); }
