@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>家庭記帳本 v5.5 (分期優化版)</title>
+    <title>家庭記帳本 v5.6 (修復補完版)</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1041/1041888.png">
@@ -695,6 +695,31 @@
             
             const d = new Date(t.date);
             document.getElementById('dateInput').value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        }
+        
+        // 補回遺失的 updateCategories 函式
+        function updateCategories() {
+            const s = document.getElementById('combinedCategoryInput');
+            const t = document.getElementById('typeInput').value;
+            const f = document.getElementById('expenseOnlyFields'); 
+            
+            s.innerHTML = '';
+            
+            if(t === 'income') { 
+                f.classList.add('hidden'); 
+                s.innerHTML = '<option value="薪資,本薪">💰 薪資</option><option value="獎金,績效">🧧 獎金</option>'; 
+            } else { 
+                f.classList.remove('hidden'); 
+                Object.entries(categories).forEach(([k,v])=>{
+                    const g = document.createElement('optgroup');
+                    const icon = getCategoryIcon(k); 
+                    g.label = `${icon} ${k}`;        
+                    v.forEach(i => g.innerHTML += `<option value="${k},${i}">${i}</option>`);
+                    s.appendChild(g);
+                }); 
+            }
+            // 更新類別後，也要重刷標籤，確保畫面同步
+            renderQuickTags();
         }
 
         function showSuccessToast() {
