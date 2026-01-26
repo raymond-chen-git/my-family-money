@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>家庭記帳本 v5.6 (修復補完版)</title>
+    <title>家庭記帳本 v5.7 (穩定修復版)</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1041/1041888.png">
@@ -269,7 +269,6 @@
         let unsubscribe = null, unsubscribeRecent = null, monthPieChart = null, trendChart = null, yearPieChart = null;
         let pickerTempDate = new Date(), pickerMode = 'month', annualSortMode = 'amount';
         
-        // 核心修改：新增變數追蹤分期編輯狀態
         let editingId = null;
         let editingGroupId = null;
 
@@ -381,11 +380,12 @@
                 if(t.type === 'expense') { subTotal += amt; pieData[t.category] = (pieData[t.category] || 0) + amt; } 
                 const d = new Date(t.date), isExp = t.type === 'expense'; 
                 
+                // 這裡修復了 onclick 呼叫的函式名稱
                 list.innerHTML += `
                 <div class="swipe-item-container" ontouchstart="handleTouchStart(event)" ontouchmove="handleTouchMove(event)" ontouchend="handleTouchEnd(event)">
                     <div class="swipe-actions">
                         <div class="swipe-btn btn-edit" onclick="editTransaction('${t.id}')"><i class="fas fa-pen"></i></div>
-                        <div class="swipe-btn btn-del" onclick="confirmDelete('${t.id}')"><i class="fas fa-trash"></i></div>
+                        <div class="swipe-btn btn-del" onclick="deleteTransaction('${t.id}')"><i class="fas fa-trash"></i></div>
                     </div>
                     <div class="swipe-content p-4 flex justify-between items-center h-full">
                         <div class="flex items-center w-full">
