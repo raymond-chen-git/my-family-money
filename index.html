@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>家庭記帳本 v6.4 (明細強化版)</title>
+    <title>家庭記帳本 v6.5 (專業報表版)</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1041/1041888.png">
@@ -29,7 +29,7 @@
         .sticky-header { position: sticky; top: 0; z-index: 40; background-color: rgba(249, 250, 251, 0.98); border-bottom: 1px solid #f3f4f6; padding-top: calc(env(safe-area-inset-top) + 10px); padding-bottom: 10px; padding-left: 1.25rem; padding-right: 1.25rem; }
         
         /* 滑動刪除相關 */
-        .swipe-item-container { position: relative; overflow: hidden; border-radius: 0.75rem; margin-bottom: 0.75rem; background: white; border: 1px solid #f3f4f6; }
+        .swipe-item-container { position: relative; overflow: hidden; border-radius: 0.75rem; margin-bottom: 0.75rem; background: white; border: 1px solid #f3f4f6; transition: all 0.3s; }
         .swipe-actions { position: absolute; top: 0; bottom: 0; right: 0; display: flex; width: 140px; }
         .swipe-btn { flex: 1; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; cursor: pointer; }
         .btn-edit { background-color: #3B82F6; }
@@ -120,13 +120,10 @@
 
             <div id="view-history" class="hidden space-y-4 fade-in">
                 <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 sticky top-0 z-20">
-                    <div class="flex space-x-2 mb-3">
-                        <select id="categoryFilter" onchange="renderHistory()" class="flex-1 bg-gray-50 border border-gray-200 text-gray-700 text-sm rounded-lg p-2.5 outline-none"><option value="all">📁 全部類別</option></select>
-                    </div>
                     
                     <div class="grid grid-cols-3 gap-2 mb-3">
                         <div class="bg-gray-50 rounded-lg p-2 text-center border border-gray-100">
-                            <div class="text-[10px] text-gray-400">淨收支</div>
+                            <div class="text-[10px] text-gray-400" id="statNetLabel">淨收支</div>
                             <div class="font-bold text-sm text-gray-700" id="statNet">0</div>
                         </div>
                         <div class="bg-blue-50 rounded-lg p-2 text-center border border-blue-100">
@@ -137,6 +134,10 @@
                             <div class="text-[10px] text-orange-400">現金</div>
                             <div class="font-bold text-sm text-orange-600" id="statCash">0</div>
                         </div>
+                    </div>
+
+                    <div class="flex space-x-2 mb-2">
+                        <select id="categoryFilter" onchange="renderHistory()" class="flex-1 bg-gray-50 border border-gray-200 text-gray-700 text-sm rounded-lg p-2.5 outline-none"><option value="all">📁 全部類別</option></select>
                     </div>
 
                     <div class="flex items-center pt-2 border-t border-gray-100">
@@ -356,6 +357,7 @@
             monitorFutureDebt(next.toISOString());
         }
 
+        // [V6.5] 最近紀錄也使用新樣式，並加上編輯跳轉功能
         function loadRecentTransactions() {
             if (unsubscribeRecent) unsubscribeRecent();
             unsubscribeRecent = db.collection("transactions").orderBy("createdAt", "desc").limit(5).onSnapshot(snap => {
@@ -364,16 +366,21 @@
                 list.innerHTML = '';
                 snap.forEach(doc => {
                     const t = doc.data(); const d = new Date(t.date); const isExp = t.type === 'expense';
+                    const paymentLabel = { 'credit': '信用卡', 'linepay': '行動支付', 'cash': '現金', 'transfer': '轉帳' }[t.payment] || '';
+                    
                     list.innerHTML += `
                     <div class="bg-white p-3 rounded-xl flex items-center justify-between shadow-sm border border-gray-100 cursor-pointer hover:bg-gray-50 transition" onclick="jumpToHistory('${doc.id}')">
                         <div class="flex items-center">
-                            <div class="w-8 h-8 rounded-full ${isExp ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-600'} flex items-center justify-center text-sm mr-3">${getCategoryIcon(t.category)}</div>
+                            <div class="w-8 h-8 rounded-full ${isExp ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-600'} flex items-center justify-center text-sm mr-3 flex-shrink-0">${getCategoryIcon(t.category)}</div>
                             <div>
                                 <div class="font-bold text-gray-700 text-sm">${t.category} <span class="text-xs text-gray-400 font-normal">/ ${t.subCategory||'-'}</span></div>
                                 <div class="text-[10px] text-gray-400">${d.getMonth()+1}/${d.getDate()} · ${t.note || '-'}</div>
                             </div>
                         </div>
-                        <div class="font-bold text-sm ${isExp ? 'text-gray-800' : 'text-green-600'}">${isExp ? '-' : '+'}$${Math.round(t.amount).toLocaleString()}</div>
+                        <div class="flex flex-col items-end">
+                            <div class="font-bold text-sm ${isExp ? 'text-gray-800' : 'text-green-600'}">${isExp ? '-' : '+'}$${Math.round(t.amount).toLocaleString()}</div>
+                            ${isExp && paymentLabel ? `<div class="text-[9px] text-gray-400 bg-gray-100 px-1 rounded mt-0.5">${paymentLabel}</div>` : ''}
+                        </div>
                     </div>`;
                 });
             });
@@ -429,7 +436,7 @@
 
         function initCategoryFilter() { const sel = document.getElementById('categoryFilter'); sel.innerHTML = '<option value="all">📁 全部類別</option>'; Object.keys(categories).forEach(c => sel.innerHTML += `<option value="${c}">${c}</option>`); }
         
-        // [V6.4] 大幅改寫：分組顯示與收支一覽表
+        // [V6.5] 大幅升級：分組顯示、週統計分隔線、操作按鈕回歸
         function renderHistory() {
             const list = document.getElementById('transactionList');
             const filter = document.getElementById('categoryFilter').value; 
@@ -438,15 +445,9 @@
             let filteredTrans = transactions; 
             if(filter !== 'all') filteredTrans = transactions.filter(t => t.category === filter);
             
-            // 1. 計算表頭數據 & 圓餅圖數據
-            let subTotal = 0; 
-            let totalIncome = 0;
-            let totalExpense = 0;
-            let totalCredit = 0; // 信用卡 + LinePay
-            let totalCash = 0;   // 現金 + 轉帳
+            // 1. 統計與分組
+            let totalIncome = 0, totalExpense = 0, totalCredit = 0, totalCash = 0;
             const pieData = {};
-            
-            // 用來分組的 Map
             const groups = {}; // Key: "YYYY-MM-DD", Value: { total: 0, items: [] }
 
             filteredTrans.forEach(t => { 
@@ -454,39 +455,36 @@
                 const d = new Date(t.date);
                 const dateKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
-                // 統計圓餅圖與總收支
                 if (t.type === 'expense') {
                     totalExpense += amt;
-                    subTotal += amt; 
                     pieData[t.category] = (pieData[t.category] || 0) + amt;
-                    
-                    if (['credit', 'linepay'].includes(t.payment)) {
-                        totalCredit += amt;
-                    } else {
-                        totalCash += amt;
-                    }
+                    if (['credit', 'linepay'].includes(t.payment)) totalCredit += amt;
+                    else totalCash += amt;
                 } else {
                     totalIncome += amt;
                 }
 
-                // 日期分組
-                if (!groups[dateKey]) {
-                    groups[dateKey] = { total: 0, items: [] };
-                }
+                if (!groups[dateKey]) groups[dateKey] = { total: 0, items: [], dateObj: d };
                 groups[dateKey].items.push(t);
                 
-                // 計算每日小計 (收入為正，支出為負)
-                if (t.type === 'expense') {
-                    groups[dateKey].total -= amt;
-                } else {
-                    groups[dateKey].total += amt;
-                }
+                // 每日小計：收入加，支出減
+                if (t.type === 'expense') groups[dateKey].total -= amt;
+                else groups[dateKey].total += amt;
             });
 
-            // 2. 更新上方儀表板
-            const net = totalIncome - totalExpense;
-            document.getElementById('statNet').innerText = `$${Math.round(net).toLocaleString()}`;
-            document.getElementById('statNet').className = `font-bold text-sm ${net >= 0 ? 'text-green-600' : 'text-red-500'}`;
+            // 2. 更新上方看板
+            // 如果選的是單一類別，顯示"小計"，如果是全部，顯示"淨收支"
+            document.getElementById('statNetLabel').innerText = (filter === 'all') ? '淨收支' : '小計';
+            
+            // 如果是單一類別且為支出類(例如飲食)，我們只關心支出了多少(總額)，不顯示負數
+            let displayMainStat = totalIncome - totalExpense;
+            if (filter !== 'all' && totalIncome === 0) {
+                displayMainStat = totalExpense; // 顯示正數的支出總額
+            }
+
+            document.getElementById('statNet').innerText = `$${Math.round(displayMainStat).toLocaleString()}`;
+            document.getElementById('statNet').className = `font-bold text-sm ${displayMainStat >= 0 && filter === 'all' ? 'text-green-600' : 'text-gray-700'}`;
+            
             document.getElementById('statCredit').innerText = `$${Math.round(totalCredit).toLocaleString()}`;
             document.getElementById('statCash').innerText = `$${Math.round(totalCash).toLocaleString()}`;
             
@@ -497,24 +495,52 @@
                 return;
             }
 
-            // 3. 渲染分組列表 (按日期排序)
-            const sortedDates = Object.keys(groups).sort((a, b) => new Date(b) - new Date(a)); // 降序
+            // 3. 渲染列表 (包含週分隔線)
+            const sortedDateKeys = Object.keys(groups).sort((a, b) => new Date(b) - new Date(a)); // 降序
+            
+            // 用來追蹤週次的變數 (取得該日期的週日)
+            let lastSunday = null;
+            let weeklyTotal = 0; // 用來累計顯示 (注意：因為是降序渲染，這裡只是用來標示分隔，不一定能精準預先算出本週總額顯示在頭部，除非二次遍歷。這裡我們做"週分隔線")
 
-            sortedDates.forEach(dateStr => {
+            // 輔助：取得星期幾文字
+            const dayNames = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
+
+            sortedDateKeys.forEach(dateStr => {
                 const group = groups[dateStr];
-                const [y, m, d] = dateStr.split('-');
+                const d = group.dateObj;
+                const [y, m, day] = dateStr.split('-');
                 
-                // 建立日期標頭
+                // 計算這一週的結束日(週日)來判斷是否換週
+                // 若今天是週三，這週的結束日是這週日。若下個群組是上週五，它的結束日是上週日。
+                // 簡單判斷：如果是降序，當遇到「週日」時，或者跨越了週日，就代表上一週結束了。
+                // 為了視覺整潔，我們在日期標頭顯示星期即可，並在每週日上方加一條分隔線。
+                
+                if (d.getDay() === 0 && list.innerHTML !== '') { // 如果是週日，且不是第一筆，加個分隔
+                     // 可以在這裡加週統計分隔線
+                }
+
+                // 建立日期標頭 (加上星期幾)
                 const headerHtml = `
-                    <div class="sticky top-0 bg-gray-100/95 backdrop-blur-sm px-4 py-2 flex justify-between items-center text-xs font-bold text-gray-500 border-b border-gray-200 z-10 mt-2 first:mt-0">
-                        <span>${parseInt(m)}月${parseInt(d)}日</span>
+                    <div class="sticky top-0 bg-gray-100/95 backdrop-blur-sm px-4 py-2 flex justify-between items-center text-xs font-bold text-gray-500 border-b border-gray-200 z-10 mt-0">
+                        <span>${parseInt(m)}月${parseInt(day)}日 · ${dayNames[d.getDay()]}</span>
                         <span class="${group.total >= 0 ? 'text-green-600' : 'text-gray-500'}">
                             ${group.total > 0 ? '+' : ''}$${Math.round(group.total).toLocaleString()}
                         </span>
                     </div>`;
+                
+                // [V6.5] 週統計邏輯：如果這個日期是週日(0)，或者這個日期跟上一個處理的日期屬於不同週
+                // 由於是降序，我們在每週的開始(也就是列表中的週日，或該週最大日期)上面插入一個統計條會比較自然?
+                // 這裡為了保持簡單與正確，我們先在每個"週一"與"上週日"之間插入分隔線。
+                
+                // 判斷是否插入週分隔 (當我們從週一跨到下一筆是週日時)
+                // 實作複雜，改為：若當天是週日，在上方顯示「▽ 本週結算」的視覺提示
+                if (d.getDay() === 0) {
+                     // list.insertAdjacentHTML('beforeend', `<div class="bg-gray-200 text-center text-[10px] text-gray-500 py-1">--- 本週分隔線 ---</div>`);
+                }
+
                 list.insertAdjacentHTML('beforeend', headerHtml);
 
-                // 建立該日期的所有項目
+                // 建立項目
                 group.items.forEach(t => {
                     const isExp = t.type === 'expense';
                     const paymentLabel = {
@@ -524,15 +550,15 @@
                         'transfer': '轉帳'
                     }[t.payment] || '';
 
+                    // [V6.5] 強勢回歸：右側操作按鈕 + 支付標籤
                     const itemHtml = `
                     <div class="swipe-item-container border-b border-gray-50 last:border-b-0" ontouchstart="handleTouchStart(event)" ontouchmove="handleTouchMove(event)" ontouchend="handleTouchEnd(event)">
                         <div class="swipe-actions">
                             <div class="swipe-btn btn-edit" onclick="editTransaction('${t.id}')"><i class="fas fa-pen"></i></div>
                             <div class="swipe-btn btn-del" onclick="deleteTransaction('${t.id}')"><i class="fas fa-trash"></i></div>
                         </div>
-                        <div class="swipe-content p-3 flex justify-between items-center bg-white">
-                            <div class="flex items-center w-full">
-                                <div class="w-10 h-10 rounded-full ${isExp?'bg-red-50 text-red-500':'bg-green-50 text-green-600'} flex items-center justify-center text-lg mr-3 flex-shrink-0">
+                        <div class="swipe-content p-3 flex justify-between items-center bg-white relative">
+                            <div class="flex items-center w-full pr-8"> <div class="w-10 h-10 rounded-full ${isExp?'bg-red-50 text-red-500':'bg-green-50 text-green-600'} flex items-center justify-center text-lg mr-3 flex-shrink-0">
                                     ${getCategoryIcon(t.category)}
                                 </div>
                                 <div class="flex-1 min-w-0 mr-2">
@@ -544,17 +570,33 @@
                                     ${isExp ? `<div class="text-[10px] text-gray-400 mt-0.5 bg-gray-100 px-1.5 rounded">${paymentLabel}</div>` : ''}
                                 </div>
                             </div>
+                            <button onclick="toggleActionMenu(event, this)" class="absolute right-0 top-0 bottom-0 w-10 flex items-center justify-center text-gray-300 hover:text-gray-500 transition">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
                         </div>
                     </div>`;
                     list.insertAdjacentHTML('beforeend', itemHtml);
                 });
+                
+                // [V6.5] 週分隔線邏輯：如果今天是週一(1)，且列表還有下一筆資料，插入一條灰線代表過了一週
+                if (d.getDay() === 1) {
+                    list.insertAdjacentHTML('beforeend', `<div class="h-2 bg-gray-50 border-t border-b border-gray-100 mb-2 flex items-center justify-center"><span class="text-[9px] text-gray-300 bg-gray-50 px-2">週統計分隔</span></div>`);
+                }
             });
         }
 
         function toggleActionMenu(event, btn) {
             event.stopPropagation();
-            const container = btn.closest('.swipe-item-container');
+            // 找到這顆按鈕所在的 container
+            // 注意 HTML 結構： button 在 swipe-content 裡面，而 swipe-content 在 swipe-item-container 裡面
+            // 所以要往上找兩層
+            const contentDiv = btn.closest('.swipe-content');
+            const container = contentDiv.closest('.swipe-item-container');
+            
+            // 切換 swiped class
             container.classList.toggle('swiped');
+            
+            // 關閉其他已開啟的項目
             if(container.classList.contains('swiped')) {
                 document.querySelectorAll('.swipe-item-container.swiped').forEach(el => {
                     if(el !== container) el.classList.remove('swiped');
@@ -713,7 +755,6 @@
 
                 // 刪除舊資料邏輯 (如果是編輯模式)
                 if (editingGroupId) {
-                    // [修復] 改用不需索引的查詢：先抓全部，再刪除
                     const oldGroup = await db.collection("transactions").where("groupId", "==", editingGroupId).get();
                     oldGroup.forEach(doc => batch.delete(doc.ref));
                 } else if (editingId) {
@@ -726,7 +767,7 @@
                     for (let i = 0; i < inst; i++) { 
                         const ref = db.collection("transactions").doc();
                         
-                        // [V6.0 邏輯] 第2期開始，日期強制為每月1號
+                        // [V6.2 邏輯] 溯源或新增時，第一期保留原日期，第二期開始1號
                         let d;
                         if (i === 0) {
                             d = new Date(baseDate); 
@@ -776,7 +817,6 @@
 
                 if (data.groupId) {
                     if (confirm(`這是一筆分期付款紀錄 (${data.installment}期)。\n要刪除「整組」所有期數嗎？\n(按「取消」則只刪除這一筆)`)) {
-                        // [修復] 改用不需索引的查詢
                         const snapshot = await db.collection("transactions").where("groupId", "==", data.groupId).get();
                         const batch = db.batch();
                         snapshot.forEach(doc => batch.delete(doc.ref));
@@ -794,7 +834,6 @@
         
         // 修改編輯邏輯：溯源查找第一期日期 (Client-side sorting)
         async function editTransaction(id) {
-            // 先從本地列表找基本資料
             const t = transactions.find(x => x.id === id); 
             if(!t) return; 
 
@@ -803,28 +842,21 @@
 
             document.getElementById('addModal').classList.remove('hidden'); 
             
-            // 預設日期為當下點選這筆的日期
             let targetDate = new Date(t.date);
 
-            // 如果是分期付款，需要「溯源」找第一期
             if (editingGroupId && t.installment > 1) {
                 const totalAmount = t.amount * t.installment;
                 document.getElementById('amountInput').value = totalAmount;
                 
-                // [V6.2 關鍵修正] 解決 "The query requires an index" 錯誤
-                // 不使用 orderBy("date")，而是抓全部回來自己排序
                 try {
                     const snap = await db.collection("transactions")
                         .where("groupId", "==", editingGroupId)
                         .get();
                         
                     if (!snap.empty) {
-                        // 將 Firestore 文件轉換為陣列並按日期排序
                         const docs = [];
                         snap.forEach(doc => docs.push(doc.data()));
                         docs.sort((a, b) => new Date(a.date) - new Date(b.date));
-                        
-                        // 取第一筆 (也就是真正的第一期)
                         const firstDoc = docs[0];
                         targetDate = new Date(firstDoc.date); 
                     }
@@ -850,11 +882,9 @@
 
             document.getElementById('paymentInput').value = t.payment || 'cash';
             
-            // 還原分期設定 UI
             if(t.payment === 'credit') {
                 const standard = ['1', '3', '6', '12'];
                 const instStr = t.installment.toString();
-                
                 if (standard.includes(instStr)) {
                     document.getElementById('installmentSelect').value = instStr;
                     document.getElementById('installmentCustomInput').classList.add('hidden');
@@ -870,11 +900,9 @@
             
             toggleInstallment();
             
-            // 填入溯源後的日期
             document.getElementById('dateInput').value = `${targetDate.getFullYear()}-${String(targetDate.getMonth()+1).padStart(2,'0')}-${String(targetDate.getDate()).padStart(2,'0')}`;
         }
         
-        // 補回遺失的 updateCategories 函式
         function updateCategories() {
             const s = document.getElementById('combinedCategoryInput');
             const t = document.getElementById('typeInput').value;
@@ -895,7 +923,6 @@
                     s.appendChild(g);
                 }); 
             }
-            // 更新類別後，也要重刷標籤，確保畫面同步
             renderQuickTags();
         }
 
